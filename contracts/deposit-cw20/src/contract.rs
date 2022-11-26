@@ -31,12 +31,17 @@ pub fn execute(
     _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
+    owner:String,
+    _contract:String
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Deposit { } => execute_deposit(deps, info),
         ExecuteMsg::Withdraw { amount, denom } => execute_withdraw(deps, info, amount, denom),
         ExecuteMsg::Receive(cw20_msg) => receive_cw20(deps, _env, info, cw20_msg),
         ExecuteMsg::WithdrawCw20 { address, amount } => execute_cw20_withdraw(deps, info, address, amount),
+        ExecuteMsg::DepositCw20 { address, amount } => execute_cw20_deposit(deps, info, owner, amount),
+        // ExecuteMsg::WithdrawCw20 { address, amount } => execute_cw20_withdraw(deps, info, contract, amount),
+
     }
 }
 
@@ -123,10 +128,38 @@ pub fn execute_withdraw(
     )
 }
 
-pub fn execute_cw20_deposit(deps: DepsMut, info: MessageInfo, owner:String, amount:Uint128) -> Result<Response, ContractError> {
+pub fn execute_cw20_deposit(
+    deps: DepsMut, 
+    info: MessageInfo, 
+    owner:String, 
+    amount:Uint128
+) -> Result<Response, ContractError> {
     let cw20_contract_address = info.sender.clone().into_string();
     //check to see if u
-    unimplemented!()
+    match CW20_DEPOSITS.load(deps.storage, (&owner, cw20_contract_address.as_str())) {
+        Ok(mut deposit) => {
+            //add coins to their account
+            
+            deposit.amount = deposit.amount.checked_add(amount).unwrap();
+            deposit.count = deposit.count.checked_add(1).unwrap();
+            CW20_DEPOSITS.save(deps.storage, (&owner, cw20_contract_address.as_str()), &deposit).unwrap();
+        }
+        Err(_) => {
+            //user does not exist, add them.
+            let deposit = Cw20Deposits {
+                contract:cw20_contract_address.clone(),
+                amount,
+                count: 1,
+                owner: owner.clone(),
+            };
+            CW20_DEPOSITS.save(deps.storage, (&owner, cw20_contract_address.as_str()), &deposit).unwrap();
+        }
+    }
+    Ok(Response::new()
+        .add_attribute("execute", "deposit")
+        .add_attribute("address", cw20_contract_address)
+        
+    )
 }
 
 //use WasmMsg::Execute instead of BankMsg::Send
@@ -140,13 +173,28 @@ pub fn execute_cw20_withdraw(
     match CW20_DEPOSITS.load(deps.storage, (&sender, &contract)) {
         Ok(mut deposit) => {
             
-           unimplemented!()
-        }
-        Err(_) => {
-            return Err(ContractError::NoCw20ToWithdraw {  });
-        }
+           let mut deposit = DEPOSITS.load(deps.storage, (&sender, contract.as_str())).unwrap();
+    deposit.coins.amount = deposit.coins.amount.checked_sub(Uint128::from(amount)).unwrap();
+    deposit.count = deposit.count.checked_sub(1).unwrap();
+    DEPOSITS.save(deps.storage, (&sender, contract.as_str()), &deposit).unwrap();
+
+    let msg = WasmMsg::Execute { contract_addr: contract, msg: to_binary(&deposit)?, funds: vec![]};
     }
+
+    Err(_) => {
+    return Err(ContractError::NoCw20ToWithdraw {  });
+    }
+
 }
+
+    Ok(Response::new()
+        .add_attribute("execute", "withdraw")
+        .add_attribute("amount", amount.to_string())
+        
+    )
+       
+    }
+
 
 
 pub fn query_deposits(deps: Deps, address:String) -> StdResult<DepositResponse> {
@@ -157,7 +205,9 @@ pub fn query_deposits(deps: Deps, address:String) -> StdResult<DepositResponse> 
 
 fn query_cw20_deposits(deps: Deps, address: String) -> StdResult<Cw20DepositResponse> {
 
-    unimplemented!()
+    let res: StdResult<Vec<_>> = CW20_DEPOSITS.prefix(&address).range(deps.storage, None, None, Order::Ascending).collect();
+    let deposits = res?;
+    Ok(Cw20DepositResponse { deposits })
 }
 
 

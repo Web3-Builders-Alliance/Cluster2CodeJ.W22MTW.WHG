@@ -13,6 +13,7 @@ mod tests {
 
     pub fn contract_deposit_cw20() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
+            //I couldn't solve this erro
             crate::contract::execute,
             crate::contract::instantiate,
             crate::contract::query,
@@ -58,6 +59,22 @@ mod tests {
 
     fn deposit_instantiate(app: &mut App, deposit_id: u64) -> DepositContract {
         //instantiate deposit contract
+        
+        let coin = Cw20Coin {address:USER.to_string(), amount:Uint128::from(10000u64)};
+        let msg:Cw20InstantiateMsg = Cw20InstantiateMsg {decimals:10, name:"Token".to_string(), symbol:"TKN".to_string(), initial_balances:vec![coin], marketing:None, mint:None };
+        let cw20_contract_address = app
+        .instantiate_contract(
+            deposit_id,
+            Addr::unchecked(ADMIN),
+            &msg,
+            &[],
+            "cw20-example",
+            None,
+        )
+        .unwrap();
+    DepositContract(cw20_contract_address)
+
+        
     }
 
     fn cw_20_instantiate(app: &mut App, cw20_id:u64) -> Cw20Contract {
