@@ -1,3 +1,5 @@
+//messages make transactions 
+
 use cosmwasm_std::Uint128;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,6 +9,8 @@ use crate::state::{Cw20Deposits, Deposits, CW20Withdraws};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+//How do we communicate with the contract
+//it's getting set up to the contract 
 pub struct InstantiateMsg {
 
 }
